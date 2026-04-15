@@ -8,6 +8,9 @@ from datetime import datetime
 import pytz
 from bs4 import BeautifulSoup
 
+# --- 0. 페이지 설정 ---
+st.set_page_config(page_title="AI Newsroom", layout="wide")
+
 # --- 1. 설정 및 보안 ---
 REQUIRED_SECRETS = ["GITHUB_TOKEN", "REPO_NAME", "GEMINI_API_KEY"]
 missing_secrets = [key for key in REQUIRED_SECRETS if key not in st.secrets]
@@ -162,7 +165,7 @@ def update_stats():
     return stats
 
 # --- 5. UI 구성 ---
-st.set_page_config(page_title="AI Newsroom", layout="wide")
+
 
 menu = st.sidebar.selectbox("메뉴", ["뉴스룸 브리핑", "관리자 대시보드"])
 
@@ -225,31 +228,15 @@ elif menu == "관리자 대시보드":
         with tab2:
             st.subheader("AI 분석 실행")
             if st.button("지금 뉴스 수집 및 Gemini 분석 시작"):
-                with st.spinner("AI가 뉴스를 읽고 브리핑을 작성 중입니다..."):
-                    # [디버그 전용] 수집 현황 미리보기
-                    st.write("🔍 **RSS 수집 시뮬레이션 (디버그)**")
-                    import time
-                    feeds_debug = load_json_from_github("feeds.json", [])
-                    debug_lines = []
-                    for url in feeds_debug:
-                        try:
-                            feed = feedparser.parse(url)
-                            count = 0
-                            for entry in feed.entries:
-                                pub = getattr(entry, "published_parsed", None)
-                                age = round((time.time() - time.mktime(pub)) / 3600, 1) if pub else "날짜없음"
-                                title_short = getattr(entry, "title", "제목없음")[:40]
-                                # 48시간 기준 필터링 결과 표시
-                                status = "✅" if (isinstance(age, float) and age <= 48) else "❌"
-                                debug_lines.append(f"{status} {url[-20:]} | {age}h | {title_short}...")
-                                count += 1
-                                if count >= 2: break
-                        except:
-                            debug_lines.append(f"⚠️ {url[-20:]} | 수집 오류")
-                    st.code("\n".join(debug_lines))
-
+                with st.status("AI가 뉴스를 읽고 브리핑을 작성 중입니다...", expanded=True) as status:
+                    st.write("📡 RSS 피드에서 최신 뉴스를 수집하고 있습니다...")
                     result = fetch_and_analyze()
-                    st.success("분석 완료!")
+                    status.update(label="✅ 분석 완료!", state="complete", expanded=False)
+                
+                if "오류" in result or "없습니다" in result:
+                    st.error(result)
+                else:
+                    st.success("오늘의 브리핑이 성공적으로 생성되었습니다!")
                     st.markdown(result)
 
         with tab3:
